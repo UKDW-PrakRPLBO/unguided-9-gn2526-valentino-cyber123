@@ -122,25 +122,98 @@ public class AppController {
     }
 
     public void update_barchart(String target_col,String val) {
-        // TODO: buat barchart menampilkan seberapa banyak nilai A,A-,B+,...
-        // method ini dapat di gunakan di 2 situasi yaitu nilai berdasarkan nim mahasiswa dan berdasarkan kode matakuliah
-        // ambil data dari attribute nilai_table
-        // tips: target_col merujuk pada nama kolom di datbase sedangkan val adalah value yang di cari dari kolom tersebut misal:
-        // target_col -> nim, val -> 71200001, maka kita mencari 71200001 di kolom nim
+        // Membersihkan data chart sebelumnya
+        barchart.getData().clear();
+
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        series.setName("Distribusi Nilai");
+
+        // Menggunakan array untuk menghitung jumlah masing-masing grade sesuai urutan di nilai_table
+        int[] counts = new int[nilai_table.penilaian.length];
+
+        // Menggunakan method fetch_nilai_by yang sudah disediakan untuk efisiensi
+        List<Nilai> listNilai = nilai_table.fetch_nilai_by(target_col, val);
+
+        for (Nilai n : listNilai) {
+            String grade = n.getNilai();
+            for (int i = 0; i < nilai_table.penilaian.length; i++) {
+                if (nilai_table.penilaian[i].equals(grade)) {
+                    counts[i]++;
+                    break;
+                }
+            }
+        }
+
+        // Memasukkan data ke dalam chart
+        for (int i = 0; i < nilai_table.penilaian.length; i++) {
+            series.getData().add(new XYChart.Data<>(nilai_table.penilaian[i], counts[i]));
+        }
+
+        barchart.getData().add(series);
     }
 
     public void update_linechart(String kode_mk) {
-        // TODO: buatlah linechart yang menggambarkan nilai mean dari setiap angkatan
-        // angkatan dapat di ambil dengan cara getAngkatan() pada entity Mahasiswa
-        // tips: fetch dulu entity mahasiswa menggunakan fetch_mahasiswa_by_nim() di mhs_tabel menggunakan nim pada nilai_table
+        linechart.getData().clear();
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        series.setName("Rata-rata Nilai");
 
+        java.util.HashMap<Integer, Double> totalScore = new java.util.HashMap<>();
+        java.util.HashMap<Integer, Integer> countScore = new java.util.HashMap<>();
+
+        // Menggunakan method fetch_nilai_by_kode_mk
+        List<Nilai> listNilai = nilai_table.fetch_nilai_by_kode_mk(kode_mk);
+
+        for (Nilai n : listNilai) {
+            // Fetch entity mahasiswa
+            Mahasiswa mhs = mhs_table.fetch_mahasiswa_by_nim(n.getNIM());
+            if (mhs != null) {
+                int angkatan = mhs.getAngkatan();
+                // Menggunakan method get_converted_nilai() dari entity Nilai
+                double numGrade = n.get_converted_nilai();
+
+                totalScore.put(angkatan, totalScore.getOrDefault(angkatan, 0.0) + numGrade);
+                countScore.put(angkatan, countScore.getOrDefault(angkatan, 0) + 1);
+            }
+        }
+
+        // Mengurutkan angkatan agar garis pada chart rapi
+        java.util.List<Integer> sortedAngkatan = new java.util.ArrayList<>(totalScore.keySet());
+        java.util.Collections.sort(sortedAngkatan);
+
+        // Memasukkan data mean ke dalam chart
+        for (int angkatan : sortedAngkatan) {
+            double mean = totalScore.get(angkatan) / countScore.get(angkatan);
+            series.getData().add(new XYChart.Data<>(String.valueOf(angkatan), mean));
+        }
+
+        linechart.getData().add(series);
     }
 
     public void update_piechart(String target_col, String val) {
-       // TODO: tampilkan banyaknya nilai A,A-,B+,... dalam bentuk piechart
-        // method ini dapat di gunakan di 2 situasi yaitu nilai berdasarkan nim mahasiswa dan berdasarkan kode matakuliah
-        // ambil data dari attribute nilai_table
-        // tips: target_col merujuk pada nama kolom di datbase sedangkan val adalah value yang di cari dari kolom tersebut misal:
-        // target_col -> nim, val -> 71200001, maka kita mencari 71200001 di kolom nim
+        piechart.getData().clear();
+
+        int[] counts = new int[nilai_table.penilaian.length];
+        List<Nilai> listNilai = nilai_table.fetch_nilai_by(target_col, val);
+
+        for (Nilai n : listNilai) {
+            String grade = n.getNilai();
+            for (int i = 0; i < nilai_table.penilaian.length; i++) {
+                if (nilai_table.penilaian[i].equals(grade)) {
+                    counts[i]++;
+                    break;
+                }
+            }
+        }
+
+        ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList();
+
+        for (int i = 0; i < nilai_table.penilaian.length; i++) {
+            if (counts[i] > 0) {
+                // Menambahkan label beserta jumlah di piechart sesuai contoh soal
+                pieChartData.add(new PieChart.Data(nilai_table.penilaian[i] + " (" + counts[i] + ")", counts[i]));
+            }
+        }
+
+        piechart.setData(pieChartData);
     }
 }
